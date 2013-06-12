@@ -1,0 +1,171 @@
+//
+//  CCUIViewWrapper.m
+//  Cocos2dWithUIKit
+//
+//  Created by Zhang Zhibin on 6/12/13.
+//  Copyright (c) 2013 Snow Storm Studio. All rights reserved.
+//  on resolving rotation issue, refer to http://www.cocos2d-iphone.org/forums/topic/ccuiviewwrapper-wrapper-for-manipulating-uiviews-using-cocos2d/page/2/
+//
+
+
+#import "CCUIViewWrapper.h"
+
+#import "CCUIViewWrapper.h"
+
+@implementation CCUIViewWrapper
+
+@synthesize uiItem;
+
++ (id) wrapperForUIView:(UIView*)ui
+{
+    return [[[self alloc] initForUIView:ui] autorelease];
+}
+
+- (id) initForUIView:(UIView*)ui
+{
+    if((self = [self init]))
+    {
+        self.uiItem = ui;
+        return self;
+    }
+    return nil;
+}
+
+- (void) dealloc
+{
+    self.uiItem = nil;
+    [super dealloc];
+}
+
+- (void) setParent:(CCNode *)parent
+{
+    if(parent == nil)
+        [uiItem removeFromSuperview];
+    else if(uiItem != nil){
+        // Devon: to resolve the rotation issue
+        // 
+//        [[[[CCDirector sharedDirector] openGLView] window] addSubview: uiItem];
+//        [[[CCDirector sharedDirector] openGLView] addSubview:uiItem];
+        [[[CCDirector sharedDirector] view] addSubview:uiItem];
+            
+    }
+    [super setParent:parent];
+}
+
+- (void) updateUIViewTransform
+{
+//    CCLOG(@"UIKitWrapper: updateUIViewTransform");
+    
+    float thisAngle, pAngle;
+    // Devon: to resolve the rotation issue
+//    CGAffineTransform    transform = CGAffineTransformMakeTranslation(0, [[UIScreen mainScreen] bounds].size.height);
+    CGAffineTransform transform = CGAffineTransformMakeTranslation(0, [[CCDirector sharedDirector] winSize].height);
+
+    for(CCNode *p = self; p != nil; p = p.parent)
+    {
+        thisAngle = CC_DEGREES_TO_RADIANS(p.rotation);
+        
+//        if(!p.isRelativeAnchorPoint)
+        if( p.ignoreAnchorPointForPosition ){
+//            transform = CGAffineTransformTranslate(transform, p.anchorPointInPixels.x, p.anchorPointInPixels.y);
+            // Devon: change it to anchorPointInPoints as anchorPointInPixel is no longer available
+            transform = CGAffineTransformTranslate(transform, p.anchorPointInPoints.x, p.anchorPointInPoints.y);
+        }
+        if(p.parent != nil)
+        {
+            pAngle = CC_DEGREES_TO_RADIANS(p.parent.rotation);
+            
+            transform = CGAffineTransformTranslate(transform,
+                                                   (p.position.x * cosf(pAngle)) + (p.position.y * sinf(pAngle)),
+                                                   (-p.position.y * cosf(pAngle)) + (p.position.x * sinf(pAngle)));
+        }
+        else
+            transform = CGAffineTransformTranslate(transform, p.position.x, -p.position.y);
+        
+        transform = CGAffineTransformRotate(transform, thisAngle);
+        transform = CGAffineTransformScale(transform, p.scaleX, p.scaleY);
+        
+        transform = CGAffineTransformTranslate(transform, -p.anchorPointInPoints.x, -p.anchorPointInPoints.y);
+    }
+    
+    [uiItem setTransform:transform];
+//    float thisAngle, pAngle;
+//    CGAffineTransform transform = CGAffineTransformMakeTranslation(0, [[CCDirector sharedDirector] winSize].height);
+//    
+//    for(CCNode *p = self; p != nil; p = p.parent) {
+//        thisAngle = CC_DEGREES_TO_RADIANS(p.rotation);
+////        if(!p.isRelativeAnchorPoint){
+//        if( p.ignoreAnchorPointForPosition ){
+//            CCLOG(@"ignoreAnchorPointForPossition");
+//            transform = CGAffineTransformTranslate(transform, p.anchorPointInPoints.x, p.anchorPointInPoints.y);
+//        }
+//        if(p.parent != nil) {
+//            pAngle = CC_DEGREES_TO_RADIANS(p.parent.rotation);
+//            
+//            transform = CGAffineTransformTranslate(transform,
+//                                                   (p.position.x * cosf(pAngle))+(p.position.y * sinf(pAngle)),
+//                                                   (-p.position.y * cosf(pAngle))+(p.position.x * sinf(pAngle)));
+//        }
+//        else {
+//            transform = CGAffineTransformTranslate(transform, p.position.x, -p.position.y);
+//        }
+//        
+//        transform = CGAffineTransformRotate(transform, thisAngle);
+//        transform = CGAffineTransformScale(transform, p.scaleX, p.scaleY);
+//        transform = CGAffineTransformTranslate(transform, -p.anchorPointInPoints.x, -p.anchorPointInPoints.y);
+//    }
+//    
+//    [uiItem setTransform:transform];
+}
+
+- (void) setVisible:(BOOL)v
+{
+    [super setVisible:v];
+    [uiItem setHidden:!v];
+}
+
+- (void) setRotation:(float)protation
+{
+    [super setRotation:protation];
+    [self updateUIViewTransform];
+}
+
+- (void) setScaleX:(float)sx
+{
+    [super setScaleX:sx];
+    [self updateUIViewTransform];
+}
+
+- (void) setScaleY:(float)sy
+{
+    [super setScaleY:sy];
+    [self updateUIViewTransform];
+}
+
+- (void) setOpacity:(GLubyte)opacity
+{
+    [uiItem setAlpha:opacity/255.0f];
+    [super setOpacity:opacity];
+}
+
+- (void) setContentSize:(CGSize)size
+{
+    [super setContentSize:size];
+    uiItem.frame	= CGRectMake(0, 0, self.contentSize.width, self.contentSize.height);
+    uiItem.bounds	= CGRectMake(0, 0, self.contentSize.width, self.contentSize.height);
+}
+
+- (void) setAnchorPoint:(CGPoint)pnt
+{
+    [super setAnchorPoint:pnt];
+    [self updateUIViewTransform];
+}
+
+- (void) setPosition:(CGPoint)pnt
+{
+    [super setPosition:pnt];
+    [self updateUIViewTransform];
+}
+
+
+@end
